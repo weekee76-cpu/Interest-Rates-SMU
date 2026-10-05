@@ -80,7 +80,34 @@ export const SEEDED_MAS_RATES: DailySoraRate[] = generateHighFidelityMasRates();
  * Fetch latest SORA benchmark rates
  */
 export async function getLatestSoraRates(): Promise<SoraSummaryRates> {
-  // Attempt to query real MAS API if available in environment, with instant fallback
+  // 1. Prioritize project serverless endpoint /api/sora
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const serverlessRes = await fetch('/api/sora', { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (serverlessRes.ok) {
+      const payload = await serverlessRes.json();
+      if (payload?.data && typeof payload.data.overnightSora === 'number') {
+        return {
+          lastUpdated: payload.lastUpdated || new Date().toISOString().split('T')[0],
+          overnightSora: payload.data.overnightSora,
+          compounded1M: payload.data.compounded1M,
+          compounded3M: payload.data.compounded3M,
+          compounded6M: payload.data.compounded6M,
+          soraIndex: payload.data.soraIndex,
+          changeOvernight: payload.data.changeOvernight ?? 0,
+          change3M: payload.data.change3M ?? 0
+        };
+      }
+    }
+  } catch {
+    // Continue to fallback
+  }
+
+  // 2. Fallback to direct MAS public Open Data API endpoint if available
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
