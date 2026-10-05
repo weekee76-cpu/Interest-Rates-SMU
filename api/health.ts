@@ -43,10 +43,16 @@ export default async function handler(req: any, res?: any) {
     version: '1.0.0'
   };
 
-  // Node.js / Express / Vercel Serverless style
-  if (res && typeof res.status === 'function') {
-    Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
-    return res.status(200).json(payload);
+  // Node.js (raw http.ServerResponse, Express, Connect, Vite) & Vercel Serverless
+  if (res && typeof res.end === 'function') {
+    if (typeof res.setHeader === 'function') {
+      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+    }
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(payload);
+    }
+    res.writeHead(200, headers);
+    return res.end(JSON.stringify(payload, null, 2));
   }
 
   // Web Standard Fetch API style (Next.js App Router / Edge / Cloudflare Workers)

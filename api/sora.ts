@@ -51,6 +51,20 @@ export interface SoraApiResponse {
   error?: string;
 }
 
+function sendResponse(res: any, status: number, headers: Record<string, string>, data: any) {
+  if (res && typeof res.end === 'function') {
+    if (typeof res.setHeader === 'function') {
+      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+    }
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(status).json(data);
+    }
+    res.writeHead(status, headers);
+    return res.end(JSON.stringify(data, null, 2));
+  }
+  return new Response(JSON.stringify(data, null, 2), { status, headers });
+}
+
 export default async function handler(req: any, res?: any) {
   const headers = {
     'Content-Type': 'application/json',
@@ -63,7 +77,7 @@ export default async function handler(req: any, res?: any) {
   // Handle CORS preflight
   const method = req.method || 'GET';
   if (method === 'OPTIONS') {
-    if (res && typeof res.status === 'function') {
+    if (res && typeof res.end === 'function') {
       res.writeHead(204, headers);
       return res.end();
     }
@@ -110,11 +124,7 @@ export default async function handler(req: any, res?: any) {
       ...memoryCache.data,
       cached: true
     };
-    if (res && typeof res.status === 'function') {
-      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
-      return res.status(200).json(cachedPayload);
-    }
-    return new Response(JSON.stringify(cachedPayload, null, 2), { status: 200, headers });
+    return sendResponse(res, 200, headers, cachedPayload);
   }
 
   // If MAS_KEY_ID is missing, return informative status
@@ -136,11 +146,7 @@ export default async function handler(req: any, res?: any) {
       }
     };
 
-    if (res && typeof res.status === 'function') {
-      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
-      return res.status(200).json(errorPayload);
-    }
-    return new Response(JSON.stringify(errorPayload, null, 2), { status: 200, headers });
+    return sendResponse(res, 200, headers, errorPayload);
   }
 
   // Call the official MAS Gateway endpoint
@@ -230,11 +236,7 @@ export default async function handler(req: any, res?: any) {
       data: payload
     };
 
-    if (res && typeof res.status === 'function') {
-      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
-      return res.status(200).json(payload);
-    }
-    return new Response(JSON.stringify(payload, null, 2), { status: 200, headers });
+    return sendResponse(res, 200, headers, payload);
   } catch (err: any) {
     const errorPayload: SoraApiResponse = {
       success: false,
@@ -252,10 +254,6 @@ export default async function handler(req: any, res?: any) {
       }
     };
 
-    if (res && typeof res.status === 'function') {
-      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
-      return res.status(502).json(errorPayload);
-    }
-    return new Response(JSON.stringify(errorPayload, null, 2), { status: 502, headers });
+    return sendResponse(res, 502, headers, errorPayload);
   }
 }
